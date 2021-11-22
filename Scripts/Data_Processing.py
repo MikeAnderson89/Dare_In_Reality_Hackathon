@@ -84,16 +84,16 @@ def DataProcessing(csv_url):
     for x in time_cols:
         df[x] = df[x].apply(TimeConversion)
 
-    for x in df['Trial_ID_2']:
-        temp = df.loc[df['Trial_ID_2'] == x]
-        laps = len(temp)
-        pit_time = timedelta(0)
-        for index, row in temp.iterrows():
-            if ~pd.isna(row['Pit_Time']):
-                pit_amount = row['Pit_Time']
-                pit_time += pit_amount
+#     for x in df['Trial_ID_2']:
+#         temp = df.loc[df['Trial_ID_2'] == x]
+#         laps = len(temp)
+#         pit_time = timedelta(0)
+#         for index, row in temp.iterrows():
+#             if ~pd.isna(row['Pit_Time']):
+#                 pit_amount = row['Pit_Time']
+#                 pit_time += pit_amount
 
-        df.loc[df['Trial_ID_2'] == x, 'Pit_Time'] = pit_time / laps
+        #df.loc[df['Trial_ID_2'] == x, 'Pit_Time'] = pit_time / laps
 
     df = df.drop(columns=[
     'S1_Large',
@@ -239,6 +239,40 @@ def DataProcessing(csv_url):
 
     df['Power'] = df['Power'].fillna(df['Power'].mode()[0])
     df['Kph'] = df['Kph'].fillna(df['Kph'].mean())
-    df = df.drop(columns=['Group', 'Hour', 'Trial_ID_2', 'Time_Minutes'])
+    df['Pit_Time'] = df['Pit_Time'].fillna(0)
+
+    if csv_url == '../Data/train.csv':
+        df = df[df['Lap_Time'] > 65]
+
+    for index, row in df.iterrows():
+        pit_time = row['Pit_Time']
+        s1 = row['S1']
+        s2 = row['S2']
+        s3 = row['S3']
+
+        if pit_time != 0:
+            if s1 > pit_time:
+                df.at[index, 'S1'] = s1 - pit_time
+            elif s2 > pit_time:
+                df.at[index, 'S2'] = s2 - pit_time
+            elif s3 > pit_time:
+                df.at[index, 'S3'] = s3 - pit_time
+
+    df = df.drop(columns=[
+    'Group',
+    #'Time_Minutes',
+    'Hour',
+    'Team',
+    'Elapsed',
+    'Time_Minutes',
+    'Pit_Time',
+    'Power',
+    'Trial_ID_2'])
+
+    #Transformations
+    df['Kph'] = np.power(df['Kph'], 2.5)
+    df['Wind_Speed'] = np.sqrt(df['Wind_Speed'])
+    df['Track_Temp'] = np.sqrt(df['Track_Temp'])
+    df['Air_Temp'] = np.log(df['Air_Temp'] + 1)
 
     return df
